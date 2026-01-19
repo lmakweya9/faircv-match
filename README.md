@@ -21,18 +21,27 @@ This project demonstrates a complete end-to-end ML workflow, featuring candidate
 ## 🛠️ Installation
 
 1.  **Clone the repository:**
+    ```
     git clone <your-repo-url>
     cd faircv-match
+    ```
 
-2.  **Create and activate a virtual environment:**
+
+3.  **Create and activate a virtual environment:**
     # Create environment
+    ```
     python -m venv venv
+    ```
 
     # Activate (Windows PowerShell / Git Bash)
-    source venv/Scripts/activate 
+    ```
+    source venv/Scripts/activate
+    ```
 
-3.  **Install dependencies:**
+5.  **Install dependencies:**
+    ```
     pip install -r requirements.txt
+    ```
 
 ---
 
@@ -58,10 +67,16 @@ python src/model.py
 
 Select a Specific Model
 Switch between models using the --model flag (logistic or tree)
+```
 python src/model.py --model tree
+```
+
 Evaluate a Single Candidate
 Predict a recommendation for a specific profile (Format: [feature1] [feature2])
+```
 python src/model.py --candidate 5.5 6.2 --model logistic
+```
+
 Example Output:
 PlaintextModel Used: logistic
 Model Accuracy: 0.95
