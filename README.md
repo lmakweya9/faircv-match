@@ -83,12 +83,12 @@ Model Accuracy: 0.95
 Demographic Parity Difference: 0.20
 Equal Opportunity Difference: 0.15
 
-## 🧰 Technologies Used:
-Language: Python 3.x
-Data Science: Pandas, NumPy, scikit-learn
-Visualization: Matplotlib
+## 🧰 Technologies Used
+* **Language:** Python 3.x
+* **Data Science:** Pandas, NumPy, scikit-learn
+* **Visualization:** Matplotlib
 
-## 🔮 Future Improvements
-[ ] Batch Processing: Evaluate entire folders of CSVs at once.
-[ ] Streamlit UI: Build a web-based dashboard for interactive model testing.
-[ ] Model Bias Mitigation: Implement "Fairlearn" techniques to actively reduce DPD and EOD scores.
+### 🔮 Future Improvements
+- [ ] **Batch Processing:** Evaluate entire folders of CSVs at once.
+- [ ] **Streamlit UI:** Build a web-based dashboard for interactive model testing.
+- [ ] **Model Bias Mitigation:** Implement "Fairlearn" techniques to actively reduce DPD and EOD scores.
