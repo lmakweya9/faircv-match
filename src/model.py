@@ -1,95 +1,150 @@
-import os
+import argparse
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
-# ---------------- Paths ----------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(BASE_DIR, '..', 'data', 'sample_data.csv')
-PLOT_PATH = os.path.join(BASE_DIR, '..', 'data', 'data_plot.png')
 
-# ---------------- Load Data ----------------
+# -----------------------------
+# Argument Parsing
+# -----------------------------
+parser = argparse.ArgumentParser(description="Fair CV Match Model")
+
+parser.add_argument(
+    "--model",
+    choices=["logistic", "tree"],
+    default="logistic",
+    help="Choose which ML model to use"
+)
+
+parser.add_argument(
+    "--candidate",
+    nargs=2,
+    type=float,
+    metavar=("feature1", "feature2"),
+    help="Candidate feature values"
+)
+
+args = parser.parse_args()
+
+
+# -----------------------------
+# Load Dataset
+# -----------------------------
+DATA_PATH = "../data/sample_data.csv"
 data = pd.read_csv(DATA_PATH)
 
-X = data.iloc[:, :-1]
-y = data.iloc[:, -1]
+X = data[["feature1", "feature2"]]
+y = data["label"]
+protected_attr = data["group"]  # e.g. demographic group
 
-# Simulated sensitive attribute (proxy)
-# Using feature2 median split
-sensitive_attr = (X.iloc[:, 1] > X.iloc[:, 1].median()).astype(int)
 
-# ---------------- Train/Test Split ----------------
-X_train, X_test, y_train, y_test, s_train, s_test = train_test_split(
-    X, y, sensitive_attr, test_size=0.2, random_state=42
+# -----------------------------
+# Train / Test Split
+# -----------------------------
+X_train, X_test, y_train, y_test, group_train, group_test = train_test_split(
+    X, y, protected_attr, test_size=0.3, random_state=42
 )
 
-# ---------------- Models ----------------
-models = {
-    "Logistic Regression": LogisticRegression(),
-    "Decision Tree": DecisionTreeClassifier(max_depth=3, random_state=42)
-}
 
-results = {}
+# -----------------------------
+# Model Selection
+# -----------------------------
+if args.model == "logistic":
+    model = LogisticRegression()
+elif args.model == "tree":
+    model = DecisionTreeClassifier(max_depth=4, random_state=42)
 
-# ---------------- Train & Evaluate ----------------
-for name, model in models.items():
-    model.fit(X_train, y_train)
-    preds = model.predict(X_test)
-    acc = accuracy_score(y_test, preds)
-    results[name] = {
-        "model": model,
-        "preds": preds,
-        "accuracy": acc
-    }
-    print(f"{name} Accuracy: {acc}")
+model.fit(X_train, y_train)
 
-# ---------------- Fairness Metric ----------------
-def demographic_parity_difference(y_pred, sensitive):
-    group_0_rate = y_pred[sensitive == 0].mean()
-    group_1_rate = y_pred[sensitive == 1].mean()
-    return abs(group_0_rate - group_1_rate)
 
-print("\nFairness Metrics (Demographic Parity Difference):")
-for name, res in results.items():
-    dp = demographic_parity_difference(res["preds"], s_test)
-    print(f"{name}: {dp:.3f}")
+# -----------------------------
+# Model Evaluation
+# -----------------------------
+y_pred = model.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
 
-# ---------------- Visualization (Logistic Regression) ----------------
-model = results["Logistic Regression"]["model"]
-preds = results["Logistic Regression"]["preds"]
+print(f"Model Used: {args.model}")
+print(f"Model Accuracy: {accuracy:.3f}")
 
-plt.figure(figsize=(6, 4))
 
-plt.scatter(
-    X_train.iloc[:, 0], X_train.iloc[:, 1],
-    c=y_train, cmap='coolwarm', s=100, label='Train'
-)
+# -----------------------------
+# Fairness Metrics
+# -----------------------------
+def demographic_parity_difference(y_pred, group):
+    groups = group.unique()
+    rates = [y_pred[group == g].mean() for g in groups]
+    return abs(rates[0] - rates[1])
 
-correct = preds == y_test
+def equal_opportunity_difference(y_true, y_pred, group):
+    groups = group.unique()
+    tpr_rates = []
+    for g in groups:
+        idx = (group == g) & (y_true == 1)  # Only positive true labels
+        if idx.sum() == 0:
+            tpr_rates.append(0)
+        else:
+            tpr_rates.append(y_pred[idx].mean())
+    return abs(tpr_rates[0] - tpr_rates[1])
+
+
+dp_diff = demographic_parity_difference(y_pred, group_test)
+eod = equal_opportunity_difference(y_test, y_pred, group_test)
+
+print(f"Demographic Parity Difference: {dp_diff:.3f}")
+print(f"Equal Opportunity Difference: {eod:.3f}")
+
+
+# -----------------------------
+# Candidate Evaluation
+# -----------------------------
+if args.candidate:
+    candidate_df = pd.DataFrame([args.candidate], columns=X.columns)
+    match_score = model.predict_proba(candidate_df)[0][1]
+    decision = "RECOMMEND" if match_score >= 0.5 else "REJECT"
+
+    print("\n--- Candidate Evaluation ---")
+    print(f"Match Score: {int(match_score * 100)}%")
+    print(f"Decision: {decision}")
+
+
+# -----------------------------
+# Visualization
+# -----------------------------
+plt.figure(figsize=(8, 6))
+
+correct = y_test == y_pred
 incorrect = ~correct
 
 plt.scatter(
-    X_test.iloc[:, 0][correct], X_test.iloc[:, 1][correct],
-    c=y_test[correct], cmap='coolwarm', marker='^', s=150, label='Test Correct'
+    X_test["feature1"][correct],
+    X_test["feature2"][correct],
+    c=y_test[correct],
+    cmap="coolwarm",
+    label="Correct Predictions"
 )
 
-if incorrect.any():
-    plt.scatter(
-        X_test.iloc[:, 0][incorrect], X_test.iloc[:, 1][incorrect],
-        c=y_test[incorrect], cmap='coolwarm', marker='x', s=150, label='Test Incorrect'
-    )
+plt.scatter(
+    X_test["feature1"][incorrect],
+    X_test["feature2"][incorrect],
+    c=y_test[incorrect],
+    cmap="coolwarm",
+    marker="x",
+    s=150,
+    label="Incorrect Predictions"
+)
 
-plt.title("Logistic Regression: Train vs Test Predictions")
 plt.xlabel("Feature 1")
 plt.ylabel("Feature 2")
+plt.title(f"Model Predictions ({args.model})")
 plt.legend()
-plt.tight_layout()
-plt.savefig(PLOT_PATH)
 
-print(f"\nPlot saved as '{PLOT_PATH}'")
+PLOT_PATH = "../data/data_plot.png"
+plt.savefig(PLOT_PATH)
+plt.close()
+
+print(f"\nPlot saved to {PLOT_PATH}")
