@@ -52,7 +52,10 @@ faircv-match/
 ## ⚡ Usage
 Run the Default Model
 Trains the logistic regression model and displays performance/fairness metrics:
+```
 python src/model.py
+```
+
 Select a Specific Model
 Switch between models using the --model flag (logistic or tree)
 python src/model.py --model tree
